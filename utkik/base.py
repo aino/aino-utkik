@@ -111,9 +111,9 @@ class View(object):
         """
         return RequestContext(self.request, self.get_context_data())
 
-    def get_template_names(self):
+    def get_templates(self):
         """
-        Return a list of template to select from when rendering.
+        Return a list of template names to select from when rendering.
 
         If this is an AJAX request and :attr:`ajax_template` is set, just
         ``[self.ajax_template]`` will be returned.
@@ -133,13 +133,13 @@ class View(object):
 
     def render(self):
         """
-        Select a template via :meth:`get_template_names` and render it using
+        Select a template via :meth:`get_templates` and render it using
         :meth:`get_context`.
 
         By default, this is called from :meth:`get_response` if the handler
         does not return a response.
         """
-        templates = self.get_template_names()
+        templates = self.get_templates()
         if not templates:
             raise ViewException(
                 _('%s does not define a template to render to.') % self)
