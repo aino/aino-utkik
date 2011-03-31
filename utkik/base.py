@@ -1,6 +1,6 @@
-from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.template import RequestContext
+from django.template.loader import select_template
 from django.utils.translation import ugettext_lazy as _
 from utkik.decorators import http_methods
 
@@ -75,28 +75,47 @@ class View(object):
         """
         return getattr(self, self.request.method.lower())
 
-    def get_context(self):
-        """If you want to add some extra context or modify the current context
-        this is a good place. This method is called from ``self.render``.
+    def get_context_data(self):
+        """Return a dictionary containing the context data.
+
+        Override this method to add to or modify the context before it is used
+        to render a template.
+
+        This method is called from :meth:`get_context`.
         """
         return self.c.__dict__
 
-    def get_template(self):
-        """Returns a template for ``self.render`` method, this is mostly for
-        having an alternative template for ajax calls.
+    def get_context(self):
+        """Return a RequestContext loaded with the context data.
+
+        Override this to change the Context class that is used to render a
+        template.
+
+        This method is called from :meth:`render`
+        """
+        return RequestContext(self.request, self.get_context_data())
+
+    def get_templates(self):
+        """
+        Calculate the list of templates to select from for when rendering.
+
+        Override this method if you need to dynamically change the template(s).
         """
         if self.request.is_ajax() and self.ajax_template:
-            return self.ajax_template
+            return [self.ajax_template]
         if not self.template:
             raise ViewException(
                 _('%s does not define a template to render to.') % self)
-        return self.template
+        return [self.template]
 
     def render(self):
         """
-        Renders ``self.get_context()`` to ``self.template``. This is called from
+        Render :meth:`get_context` to :attr:`template``. This is called from
         ``self.get_response`` if the handler does not return a response.
         """
-        return render_to_response(self.get_template(), self.get_context(),
-            RequestContext(self.request))
-
+        templates = self.get_templates()
+        if not templates:
+            raise ViewException(
+                _('%s does not define a template to render to.') % self)
+        template = select_template(templates)
+        return template.render(self.get_context())
