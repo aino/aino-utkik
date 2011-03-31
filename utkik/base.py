@@ -10,13 +10,16 @@ class ViewException(Exception):
 
 
 class ContextData(object):
-    """This will contain attributes for context. All the attributes are later
-    collected by ContextData().__dict__.
+    """
+    A container for attributes to store on the template context.
+
+    All the attributes are later collected as a dictionary via ``__dict__``.
     """
 
 
 class View(object):
-    """A minimalist View base class.
+    """
+    A minimalist View base class.
 
     Goals
     -----
@@ -39,81 +42,104 @@ class View(object):
     ajax_template = None # template to render to for ajax calls
 
     def __init__(self):
-        """All we do here is to instantiate the ContextData class"""
+        """
+        Create a :class:`ContextData` instance for the view.
+        """
         self.c = ContextData() # c is for context
         self.request = None
 
     def dispatch(self, request, *args, **kwargs):
-        """View entry point. The utkik dispatcher will create a new instance of
-        the current class and call this method when the Django handler makes a
-        call to the view.
+        """
+        View entry point.
+
+        The utkik dispatcher will create a new instance of the current class
+        and call this method when the Django handler makes a call to the view.
         """
         self.request = request
         return self._decorate(self.get_response)(request, *args, **kwargs)
 
-    def _decorate(self, f):
-        """Decorate function f with decorators from ``self.decorators`` and
-        decorators based on ``self.methods``.
+    def _decorate(self, func):
         """
-        for d in reversed(self.decorators):
-            f = d(f)
+        Decorate a function with decorators from :attr:`decorators` and
+        decorators based on :attr:`methods`.
+        """
+        for decorator in reversed(self.decorators):
+            func = decorator(func)
         methods = [m for m in self.methods if hasattr(self, m.lower())]
-        return http_methods(*methods)(f)
+        return http_methods(*methods)(func)
 
     def get_response(self, request, *args, **kwargs):
-        """Returns the response from a successful request to the view. In it's
-        default implementation it will direct to a suitable handler method based
-        on the HTTP method call. If this handler does not return a response, we
-        will simply call and return ``self.render``. Request is just passed in
-        here for decorator compatibilty reasons.
+        """
+        Return the response from a successful request to the view.
+
+        Directs to a suitable handler method based on the HTTP method call.
+        If this handler does not return a response, :meth:`render` is called
+        and returned.
+
+        Request is just passed in here for decorator compatibility.
         """
         return self.get_handler()(*args, **kwargs) or self.render()
 
     def get_handler(self):
-        """Return a suitable handler. You can override this for example if you
-        want another handler for ajax calls.
+        """
+        Return the method for the current request.
+
+        Override this to change the handler method that is used for a request,
+        for example, to use an alternate handler for AJAX calls.
         """
         return getattr(self, self.request.method.lower())
 
     def get_context_data(self):
-        """Return a dictionary containing the context data.
+        """
+        Return a dictionary containing the context data.
 
         Override this method to add to or modify the context before it is used
         to render a template.
 
-        This method is called from :meth:`get_context`.
+        This is called from :meth:`get_context`.
         """
         return self.c.__dict__
 
     def get_context(self):
-        """Return a RequestContext loaded with the context data.
+        """
+        Return a RequestContext loaded with the context data.
 
         Override this to change the Context class that is used to render a
         template.
 
-        This method is called from :meth:`render`
+        This is called from :meth:`render`.
         """
         return RequestContext(self.request, self.get_context_data())
 
-    def get_templates(self):
+    def get_template_names(self):
         """
-        Calculate the list of templates to select from for when rendering.
+        Return a list of template to select from when rendering.
 
-        Override this method if you need to dynamically change the template(s).
+        If this is an AJAX request and :attr:`ajax_template` is set, just
+        ``[self.ajax_template]`` will be returned.
+
+        If :attr:`template` is set, ``[self.template]`` will be returned.
+
+        Otherwise an empty list will be returned (which will cause the default
+        :meth:`render` method to raise a :class:`ViewException`).
+
+        Override this method to dynamically change the template(s).
         """
         if self.request.is_ajax() and self.ajax_template:
             return [self.ajax_template]
-        if not self.template:
-            raise ViewException(
-                _('%s does not define a template to render to.') % self)
-        return [self.template]
+        if self.template:
+            return [self.template]
+        return []
 
     def render(self):
         """
-        Render :meth:`get_context` to :attr:`template``. This is called from
-        ``self.get_response`` if the handler does not return a response.
+        Select a template via :meth:`get_template_names` and render it using
+        :meth:`get_context`.
+
+        By default, this is called from :meth:`get_response` if the handler
+        does not return a response.
         """
-        templates = self.get_templates()
+        templates = self.get_template_names()
         if not templates:
             raise ViewException(
                 _('%s does not define a template to render to.') % self)
