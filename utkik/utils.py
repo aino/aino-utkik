@@ -2,7 +2,7 @@ import re
 import sys
 from functools import update_wrapper
 from django.http import HttpResponse
-from django.utils import simplejson
+import simplejson
 
 
 uncamel_patterns = (
