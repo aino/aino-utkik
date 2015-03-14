@@ -20,6 +20,7 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*']),
     zip_safe=False,
     cmdclass={"test": TestCommand},
+    install_requires = ['simplejson'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',
